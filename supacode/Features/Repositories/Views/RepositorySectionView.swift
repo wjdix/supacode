@@ -66,14 +66,14 @@ struct RepositorySectionView: View {
           Button {
             store.send(.createRandomWorktreeInRepository(repository.id))
           } label: {
-            Label("New Worktree", systemImage: "plus")
+            Label("New \(repository.vcsType.worktreeLabel)", systemImage: "plus")
               .labelStyle(.iconOnly)
               .frame(maxHeight: .infinity)
               .contentShape(Rectangle())
           }
           .buttonStyle(.plain)
           .foregroundStyle(.secondary)
-          .help("New Worktree (\(AppShortcuts.newWorktree.display))")
+          .help("New \(repository.vcsType.worktreeLabel) (\(AppShortcuts.newWorktree.display))")
           .disabled(isRemovingRepository)
           Button {
             toggleExpanded()

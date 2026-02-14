@@ -5,7 +5,22 @@ struct Repository: Identifiable, Hashable, Sendable {
   let id: String
   let rootURL: URL
   let name: String
+  let vcsType: VCSType
   let worktrees: IdentifiedArrayOf<Worktree>
+
+  init(
+    id: String,
+    rootURL: URL,
+    name: String,
+    vcsType: VCSType = .git,
+    worktrees: IdentifiedArrayOf<Worktree>
+  ) {
+    self.id = id
+    self.rootURL = rootURL
+    self.name = name
+    self.vcsType = vcsType
+    self.worktrees = worktrees
+  }
 
   var initials: String {
     Self.initials(from: name)

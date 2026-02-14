@@ -6,6 +6,7 @@ nonisolated struct WorktreeCreationProgress: Hashable, Sendable {
   var copyUntracked: Bool?
   var ignoredFilesToCopyCount: Int?
   var untrackedFilesToCopyCount: Int?
+  var vcsType: VCSType
 
   init(
     stage: WorktreeCreationStage,
@@ -14,7 +15,8 @@ nonisolated struct WorktreeCreationProgress: Hashable, Sendable {
     copyIgnored: Bool? = nil,
     copyUntracked: Bool? = nil,
     ignoredFilesToCopyCount: Int? = nil,
-    untrackedFilesToCopyCount: Int? = nil
+    untrackedFilesToCopyCount: Int? = nil,
+    vcsType: VCSType = .git
   ) {
     self.stage = stage
     self.worktreeName = worktreeName
@@ -23,26 +25,30 @@ nonisolated struct WorktreeCreationProgress: Hashable, Sendable {
     self.copyUntracked = copyUntracked
     self.ignoredFilesToCopyCount = ignoredFilesToCopyCount
     self.untrackedFilesToCopyCount = untrackedFilesToCopyCount
+    self.vcsType = vcsType
   }
 
   var titleText: String {
     if let worktreeName, !worktreeName.isEmpty {
       return "Creating \(worktreeName)"
     }
-    return "Creating worktree"
+    return "Creating \(vcsType.worktreeLabelLowercased)"
   }
 
   var detailText: String {
     switch stage {
     case .loadingLocalBranches:
-      return "Reading local branches"
+      return vcsType.isJujutsu ? "Reading bookmarks" : "Reading local branches"
     case .choosingWorktreeName:
-      return "Choosing available worktree name"
+      return "Choosing available \(vcsType.worktreeLabelLowercased) name"
     case .checkingRepositoryMode:
       return "Checking repository mode"
     case .resolvingBaseReference:
       return "Resolving base reference (\(baseRefDisplay))"
     case .creatingWorktree:
+      if vcsType.isJujutsu {
+        return "Creating from \(baseRefBranchDisplay)"
+      }
       let ignoredCount = copyIgnored == true ? (ignoredFilesToCopyCount ?? 0) : 0
       let untrackedCount = copyUntracked == true ? (untrackedFilesToCopyCount ?? 0) : 0
       let copySummary =
@@ -54,7 +60,7 @@ nonisolated struct WorktreeCreationProgress: Hashable, Sendable {
 
   private var baseRefDisplay: String {
     guard let baseRef, !baseRef.isEmpty else {
-      return "HEAD"
+      return vcsType.isJujutsu ? "@" : "HEAD"
     }
     return baseRef
   }
@@ -64,8 +70,11 @@ nonisolated struct WorktreeCreationProgress: Hashable, Sendable {
     if normalized == "main" || normalized == "origin/main" {
       return "main branch"
     }
-    if normalized == "head" {
-      return "HEAD"
+    if normalized == "head" || normalized == "@" {
+      return vcsType.isJujutsu ? "@" : "HEAD"
+    }
+    if vcsType.isJujutsu {
+      return "\(baseRefDisplay) bookmark"
     }
     return "\(baseRefDisplay) branch"
   }

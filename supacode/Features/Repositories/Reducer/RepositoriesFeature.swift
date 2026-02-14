@@ -169,7 +169,7 @@ struct RepositoriesFeature {
   }
 
   @Dependency(\.analyticsClient) private var analyticsClient
-  @Dependency(\.gitClient) private var gitClient
+  @Dependency(\.vcsClient) private var vcsClient
   @Dependency(\.githubCLI) private var githubCLI
   @Dependency(\.githubIntegration) private var githubIntegration
   @Dependency(\.repositoryPersistence) private var repositoryPersistence
@@ -324,7 +324,7 @@ struct RepositoriesFeature {
           var invalidRoots: [String] = []
           for url in urls {
             do {
-              let root = try await gitClient.repoRoot(url)
+              let root = try await vcsClient.repoRoot(url)
               resolvedRoots.append(root)
             } catch {
               invalidRoots.append(url.path(percentEncoded: false))
@@ -365,7 +365,7 @@ struct RepositoriesFeature {
           uniqueKeysWithValues: failures.map { ($0.rootID, $0.message) }
         )
         if !invalidRoots.isEmpty {
-          let message = invalidRoots.map { "\($0) is not a Git repository." }.joined(separator: "\n")
+          let message = invalidRoots.map { "\($0) is not a Git or Jujutsu repository." }.joined(separator: "\n")
           state.alert = messageAlert(
             title: "Some folders couldn't be opened",
             message: message
@@ -455,7 +455,7 @@ struct RepositoriesFeature {
         analyticsClient.capture("branch_renamed", nil)
         return .run { send in
           do {
-            try await gitClient.renameBranch(worktree.workingDirectory, trimmed)
+            try await vcsClient.renameBranch(worktree.workingDirectory, trimmed)
             await send(.reloadRepositories(animated: true))
           } catch {
             await send(
@@ -503,18 +503,19 @@ struct RepositoriesFeature {
         let selectedBaseRef = repositorySettings.worktreeBaseRef
         let copyIgnoredOnWorktreeCreate = repositorySettings.copyIgnoredOnWorktreeCreate
         let copyUntrackedOnWorktreeCreate = repositorySettings.copyUntrackedOnWorktreeCreate
+        let repoVCSType = repository.vcsType
         state.pendingWorktrees.append(
           PendingWorktree(
             id: pendingID,
             repositoryID: repository.id,
-            progress: WorktreeCreationProgress(stage: .loadingLocalBranches)
+            progress: WorktreeCreationProgress(stage: .loadingLocalBranches, vcsType: repoVCSType)
           )
         )
         state.selection = .worktree(pendingID)
         let existingNames = Set(repository.worktrees.map { $0.name.lowercased() })
         return .run { send in
           var newWorktreeName: String?
-          var progress = WorktreeCreationProgress(stage: .loadingLocalBranches)
+          var progress = WorktreeCreationProgress(stage: .loadingLocalBranches, vcsType: repoVCSType)
           do {
             await send(
               .pendingWorktreeProgressUpdated(
@@ -522,7 +523,7 @@ struct RepositoriesFeature {
                 progress: progress
               )
             )
-            let branchNames = try await gitClient.localBranchNames(repository.rootURL)
+            let branchNames = try await vcsClient.localBranchNames(repository.rootURL)
             progress.stage = .choosingWorktreeName
             await send(
               .pendingWorktreeProgressUpdated(
@@ -559,7 +560,7 @@ struct RepositoriesFeature {
                 progress: progress
               )
             )
-            let isBareRepository = (try? await gitClient.isBareRepository(repository.rootURL)) ?? false
+            let isBareRepository = (try? await vcsClient.isBareRepository(repository.rootURL)) ?? false
             let copyIgnored = isBareRepository ? false : copyIgnoredOnWorktreeCreate
             let copyUntracked = isBareRepository ? false : copyUntrackedOnWorktreeCreate
             progress.stage = .resolvingBaseReference
@@ -571,7 +572,7 @@ struct RepositoriesFeature {
             )
             let resolvedBaseRef: String
             if (selectedBaseRef ?? "").isEmpty {
-              resolvedBaseRef = await gitClient.automaticWorktreeBaseRef(repository.rootURL) ?? ""
+              resolvedBaseRef = await vcsClient.automaticWorktreeBaseRef(repository.rootURL) ?? ""
             } else {
               resolvedBaseRef = selectedBaseRef ?? ""
             }
@@ -579,9 +580,9 @@ struct RepositoriesFeature {
             progress.copyIgnored = copyIgnored
             progress.copyUntracked = copyUntracked
             progress.ignoredFilesToCopyCount =
-              copyIgnored ? ((try? await gitClient.ignoredFileCount(repository.rootURL)) ?? 0) : 0
+              copyIgnored ? ((try? await vcsClient.ignoredFileCount(repository.rootURL)) ?? 0) : 0
             progress.untrackedFilesToCopyCount =
-              copyUntracked ? ((try? await gitClient.untrackedFileCount(repository.rootURL)) ?? 0) : 0
+              copyUntracked ? ((try? await vcsClient.untrackedFileCount(repository.rootURL)) ?? 0) : 0
             progress.stage = .creatingWorktree
             await send(
               .pendingWorktreeProgressUpdated(
@@ -589,7 +590,7 @@ struct RepositoriesFeature {
                 progress: progress
               )
             )
-            let newWorktree = try await gitClient.createWorktree(
+            let newWorktree = try await vcsClient.createWorktree(
               name,
               repository.rootURL,
               copyIgnored,
@@ -692,8 +693,8 @@ struct RepositoriesFeature {
           let repositoryRootURL = cleanupWorktree.repositoryRootURL
           effects.append(
             .run { send in
-              _ = try? await gitClient.removeWorktree(cleanupWorktree, true)
-              _ = try? await gitClient.pruneWorktrees(repositoryRootURL)
+              _ = try? await vcsClient.removeWorktree(cleanupWorktree, true)
+              _ = try? await vcsClient.pruneWorktrees(repositoryRootURL)
               await send(.reloadRepositories(animated: true))
             }
           )
@@ -946,7 +947,7 @@ struct RepositoriesFeature {
         let deleteBranchOnDeleteWorktree = settingsFile.global.deleteBranchOnDeleteWorktree
         return .run { send in
           do {
-            _ = try await gitClient.removeWorktree(
+            _ = try await vcsClient.removeWorktree(
               worktree,
               deleteBranchOnDeleteWorktree
             )
@@ -1221,7 +1222,7 @@ struct RepositoriesFeature {
         var effects: [Effect<Action>] = [
           .run { _ in
             await repositoryPersistence.savePinnedWorktreeIDs(pinnedWorktreeIDs)
-          },
+          }
         ]
         if didUpdateWorktreeOrder {
           let worktreeOrderByRepository = state.worktreeOrderByRepository
@@ -1248,7 +1249,7 @@ struct RepositoriesFeature {
         var effects: [Effect<Action>] = [
           .run { _ in
             await repositoryPersistence.savePinnedWorktreeIDs(pinnedWorktreeIDs)
-          },
+          }
         ]
         if didUpdateWorktreeOrder {
           let worktreeOrderByRepository = state.worktreeOrderByRepository
@@ -1347,9 +1348,9 @@ struct RepositoriesFeature {
             return .none
           }
           let worktreeURL = worktree.workingDirectory
-          let gitClient = gitClient
+          let vcsClient = vcsClient
           return .run { send in
-            if let name = await gitClient.branchName(worktreeURL) {
+            if let name = await vcsClient.branchName(worktreeURL) {
               await send(.worktreeBranchNameLoaded(worktreeID: worktreeID, name: name))
             }
           }
@@ -1358,9 +1359,9 @@ struct RepositoriesFeature {
             return .none
           }
           let worktreeURL = worktree.workingDirectory
-          let gitClient = gitClient
+          let vcsClient = vcsClient
           return .run { send in
-            if let changes = await gitClient.lineChanges(worktreeURL) {
+            if let changes = await vcsClient.lineChanges(worktreeURL) {
               await send(
                 .worktreeLineChangesLoaded(
                   worktreeID: worktreeID,
@@ -1380,14 +1381,14 @@ struct RepositoriesFeature {
           guard !branches.isEmpty else {
             return .none
           }
-          let gitClient = gitClient
+          let vcsClient = vcsClient
           let githubCLI = githubCLI
           let githubIntegration = githubIntegration
           return .run { send in
             guard await githubIntegration.isAvailable() else {
               return
             }
-            guard let remoteInfo = await gitClient.remoteInfo(repositoryRootURL) else {
+            guard let remoteInfo = await vcsClient.remoteInfo(repositoryRootURL) else {
               return
             }
             do {
@@ -1721,10 +1722,10 @@ struct RepositoriesFeature {
   }
 
   private func loadRepositories(_ roots: [URL], animated: Bool = false) -> Effect<Action> {
-    let gitClient = gitClient
+    let vcsClient = vcsClient
     return .run { [animated, roots] send in
       for root in roots {
-        _ = try? await gitClient.pruneWorktrees(root)
+        _ = try? await vcsClient.pruneWorktrees(root)
       }
       let (repositories, failures) = await loadRepositoriesData(roots)
       await send(
@@ -1746,12 +1747,14 @@ struct RepositoriesFeature {
       let normalizedRoot = root.standardizedFileURL
       let rootID = normalizedRoot.path(percentEncoded: false)
       do {
-        let worktrees = try await gitClient.worktrees(root)
+        let worktrees = try await vcsClient.worktrees(root)
         let name = Repository.name(for: normalizedRoot)
+        let vcsType = VCSType.detect(at: normalizedRoot)
         let repository = Repository(
           id: rootID,
           rootURL: normalizedRoot,
           name: name,
+          vcsType: vcsType,
           worktrees: IdentifiedArray(uniqueElements: worktrees)
         )
         loaded.append(repository)
@@ -2324,6 +2327,7 @@ private func insertWorktree(
     id: repository.id,
     rootURL: repository.rootURL,
     name: repository.name,
+    vcsType: repository.vcsType,
     worktrees: worktrees
   )
 }
@@ -2343,6 +2347,7 @@ private func removeWorktree(
     id: repository.id,
     rootURL: repository.rootURL,
     name: repository.name,
+    vcsType: repository.vcsType,
     worktrees: worktrees
   )
   return true
@@ -2455,6 +2460,7 @@ private func updateWorktreeName(
       id: repository.id,
       rootURL: repository.rootURL,
       name: repository.name,
+      vcsType: repository.vcsType,
       worktrees: worktrees
     )
     state.repositories[index] = repository

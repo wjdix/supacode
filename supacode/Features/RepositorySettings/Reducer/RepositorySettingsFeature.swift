@@ -26,7 +26,7 @@ struct RepositorySettingsFeature {
     case settingsChanged(URL)
   }
 
-  @Dependency(\.gitClient) private var gitClient
+  @Dependency(\.vcsClient) private var vcsClient
 
   var body: some Reducer<State, Action> {
     BindingReducer()
@@ -36,13 +36,13 @@ struct RepositorySettingsFeature {
         let rootURL = state.rootURL
         @Shared(.repositorySettings(rootURL)) var repositorySettings
         let settings = repositorySettings
-        let gitClient = gitClient
+        let vcsClient = vcsClient
         return .run { send in
-          let isBareRepository = (try? await gitClient.isBareRepository(rootURL)) ?? false
+          let isBareRepository = (try? await vcsClient.isBareRepository(rootURL)) ?? false
           await send(.settingsLoaded(settings, isBareRepository: isBareRepository))
           let branches: [String]
           do {
-            branches = try await gitClient.branchRefs(rootURL)
+            branches = try await vcsClient.branchRefs(rootURL)
           } catch {
             let rootPath = rootURL.path(percentEncoded: false)
             SupaLogger("Settings").warning(
@@ -50,7 +50,7 @@ struct RepositorySettingsFeature {
             )
             branches = []
           }
-          let defaultBaseRef = await gitClient.automaticWorktreeBaseRef(rootURL) ?? "HEAD"
+          let defaultBaseRef = await vcsClient.automaticWorktreeBaseRef(rootURL) ?? "HEAD"
           await send(.branchDataLoaded(branches, defaultBaseRef: defaultBaseRef))
         }
 

@@ -14,7 +14,7 @@ struct RepositoriesFeatureTests {
     let store = TestStore(initialState: makeState(repositories: [repository])) {
       RepositoriesFeature()
     } withDependencies: {
-      $0.gitClient.worktrees = { _ in [worktree] }
+      $0.vcsClient.worktrees = { _ in [worktree] }
     }
 
     await store.send(.refreshWorktrees) {
@@ -109,7 +109,7 @@ struct RepositoriesFeatureTests {
         id: pendingID,
         repositoryID: repository.id,
         progress: WorktreeCreationProgress(stage: .loadingLocalBranches)
-      ),
+      )
     ]
     let store = TestStore(initialState: state) {
       RepositoriesFeature()
@@ -146,7 +146,7 @@ struct RepositoriesFeatureTests {
           stage: .checkingRepositoryMode,
           worktreeName: "swift-otter"
         )
-      ),
+      )
     ]
     let store = TestStore(initialState: state) {
       RepositoriesFeature()
@@ -306,7 +306,7 @@ struct RepositoriesFeatureTests {
         addedLines: nil,
         removedLines: nil,
         pullRequest: makePullRequest(state: "MERGED")
-      ),
+      )
     ]
     let store = TestStore(initialState: state) {
       RepositoriesFeature()
@@ -729,7 +729,7 @@ struct RepositoriesFeatureTests {
         id: removedWorktree.id,
         repositoryID: repository.id,
         progress: WorktreeCreationProgress(stage: .choosingWorktreeName)
-      ),
+      )
     ]
     initialState.pinnedWorktreeIDs = [removedWorktree.id]
     initialState.worktreeInfoByID = [
@@ -738,7 +738,7 @@ struct RepositoriesFeatureTests {
     let store = TestStore(initialState: initialState) {
       RepositoriesFeature()
     } withDependencies: {
-      $0.gitClient.worktrees = { _ in [mainWorktree] }
+      $0.vcsClient.worktrees = { _ in [mainWorktree] }
     }
 
     await store.send(
@@ -776,7 +776,7 @@ struct RepositoriesFeatureTests {
     let store = TestStore(initialState: initialState) {
       RepositoriesFeature()
     } withDependencies: {
-      $0.gitClient.worktrees = { _ in [mainWorktree] }
+      $0.vcsClient.worktrees = { _ in [mainWorktree] }
     }
 
     await store.send(
@@ -812,13 +812,13 @@ struct RepositoriesFeatureTests {
         id: pendingID,
         repositoryID: repository.id,
         progress: WorktreeCreationProgress(stage: .loadingLocalBranches)
-      ),
+      )
     ]
     initialState.selection = .worktree(pendingID)
     let store = TestStore(initialState: initialState) {
       RepositoriesFeature()
     } withDependencies: {
-      $0.gitClient.worktrees = { _ in [newWorktree, existingWorktree] }
+      $0.vcsClient.worktrees = { _ in [newWorktree, existingWorktree] }
     }
 
     await store.send(
