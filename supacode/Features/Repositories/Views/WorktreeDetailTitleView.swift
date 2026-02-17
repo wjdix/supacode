@@ -2,6 +2,7 @@ import SwiftUI
 
 struct WorktreeDetailTitleView: View {
   let branchName: String
+  let vcsType: VCSType
   let onSubmit: (String) -> Void
 
   @State private var isPresented = false
@@ -20,9 +21,10 @@ struct WorktreeDetailTitleView: View {
       }
       .font(.headline)
     }
-    .help("Rename branch")
+    .help("Rename \(vcsType.branchLabelLowercased)")
     .popover(isPresented: $isPresented) {
       RenameBranchPopover(
+        vcsType: vcsType,
         draftName: $draftName,
         onCancel: { isPresented = false },
         onSubmit: { newName in
@@ -37,6 +39,7 @@ struct WorktreeDetailTitleView: View {
 }
 
 private struct RenameBranchPopover: View {
+  let vcsType: VCSType
   @Binding var draftName: String
   let onCancel: () -> Void
   let onSubmit: (String) -> Void
@@ -44,10 +47,10 @@ private struct RenameBranchPopover: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
-      Text("Rename Branch")
+      Text("Rename \(vcsType.branchLabel)")
         .font(.headline)
 
-      TextField("Branch name", text: $draftName)
+      TextField("\(vcsType.branchLabel) name", text: $draftName)
         .textFieldStyle(.roundedBorder)
         .focused($isFocused)
         .onChange(of: draftName) { _, newValue in

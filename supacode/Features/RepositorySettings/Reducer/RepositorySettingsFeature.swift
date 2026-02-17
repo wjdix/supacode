@@ -6,6 +6,7 @@ struct RepositorySettingsFeature {
   @ObservableState
   struct State: Equatable {
     var rootURL: URL
+    var vcsType: VCSType = .git
     var settings: RepositorySettings
     var isBareRepository = false
     var branchOptions: [String] = []

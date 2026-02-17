@@ -7,6 +7,7 @@ struct RepositorySettingsView: View {
   @State private var branchSearchText = ""
 
   var body: some View {
+    let vcsType = store.vcsType
     let baseRefOptions =
       store.branchOptions.isEmpty ? [store.defaultWorktreeBaseRef] : store.branchOptions
     let settings = $store.settings
@@ -31,6 +32,7 @@ struct RepositorySettingsView: View {
           .buttonStyle(.plain)
           .popover(isPresented: $isBranchPickerPresented) {
             BranchPickerPopover(
+              vcsType: vcsType,
               searchText: $branchSearchText,
               options: baseRefOptions,
               automaticLabel: "Automatic (\(store.defaultWorktreeBaseRef))",
@@ -47,31 +49,33 @@ struct RepositorySettingsView: View {
         }
       } header: {
         VStack(alignment: .leading, spacing: 4) {
-          Text("Branch new workspaces from")
+          Text("\(vcsType.branchLabel) new workspaces from")
           Text("Each workspace is an isolated copy of your codebase.")
             .foregroundStyle(.secondary)
         }
       }
-      Section {
-        Toggle(
-          "Copy ignored files to new worktrees",
-          isOn: settings.copyIgnoredOnWorktreeCreate
-        )
-        .disabled(store.isBareRepository)
-        Toggle(
-          "Copy untracked files to new worktrees",
-          isOn: settings.copyUntrackedOnWorktreeCreate
-        )
-        .disabled(store.isBareRepository)
-        if store.isBareRepository {
-          Text("Copy flags are ignored for bare repositories.")
-            .foregroundStyle(.secondary)
-        }
-      } header: {
-        VStack(alignment: .leading, spacing: 4) {
-          Text("Worktree")
-          Text("Applies when creating a new worktree")
-            .foregroundStyle(.secondary)
+      if !vcsType.isJujutsu {
+        Section {
+          Toggle(
+            "Copy ignored files to new worktrees",
+            isOn: settings.copyIgnoredOnWorktreeCreate
+          )
+          .disabled(store.isBareRepository)
+          Toggle(
+            "Copy untracked files to new worktrees",
+            isOn: settings.copyUntrackedOnWorktreeCreate
+          )
+          .disabled(store.isBareRepository)
+          if store.isBareRepository {
+            Text("Copy flags are ignored for bare repositories.")
+              .foregroundStyle(.secondary)
+          }
+        } header: {
+          VStack(alignment: .leading, spacing: 4) {
+            Text("Worktree")
+            Text("Applies when creating a new worktree")
+              .foregroundStyle(.secondary)
+          }
         }
       }
       Section {
@@ -110,7 +114,7 @@ struct RepositorySettingsView: View {
       } header: {
         VStack(alignment: .leading, spacing: 4) {
           Text("Setup Script")
-          Text("Initial setup script that will be launched once after worktree creation")
+          Text("Initial setup script that will be launched once after \(vcsType.worktreeLabelLowercased) creation")
             .foregroundStyle(.secondary)
         }
       }
@@ -146,6 +150,7 @@ struct RepositorySettingsView: View {
 }
 
 private struct BranchPickerPopover: View {
+  let vcsType: VCSType
   @Binding var searchText: String
   let options: [String]
   let automaticLabel: String
@@ -160,7 +165,7 @@ private struct BranchPickerPopover: View {
 
   var body: some View {
     VStack(spacing: 0) {
-      TextField("Filter branches...", text: $searchText)
+      TextField("Filter \(vcsType.branchLabelLowercased)s...", text: $searchText)
         .textFieldStyle(.roundedBorder)
         .focused($isSearchFocused)
         .padding(8)

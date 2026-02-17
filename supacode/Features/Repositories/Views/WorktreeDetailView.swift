@@ -66,8 +66,12 @@ struct WorktreeDetailView: View {
           } else {
             false
           }
+        let vcsType =
+          repositories.repositoryID(containing: selectedWorktree.id)
+          .flatMap { repositories.repositories[id: $0]?.vcsType } ?? .git
         let toolbarState = WorktreeToolbarState(
           branchName: selectedWorktree.name,
+          vcsType: vcsType,
           statusToast: repositories.statusToast,
           pullRequest: matchesBranch ? pullRequest : nil,
           notificationGroups: notificationGroups,
@@ -182,6 +186,7 @@ struct WorktreeDetailView: View {
 
   fileprivate struct WorktreeToolbarState {
     let branchName: String
+    let vcsType: VCSType
     let statusToast: RepositoriesFeature.StatusToast?
     let pullRequest: GithubPullRequest?
     let notificationGroups: [ToolbarNotificationRepositoryGroup]
@@ -215,6 +220,7 @@ struct WorktreeDetailView: View {
       ToolbarItem {
         WorktreeDetailTitleView(
           branchName: toolbarState.branchName,
+          vcsType: toolbarState.vcsType,
           onSubmit: onRenameBranch
         )
       }
@@ -425,6 +431,7 @@ private struct WorktreeToolbarPreview: View {
   init() {
     toolbarState = WorktreeDetailView.WorktreeToolbarState(
       branchName: "feature/toolbar-preview",
+      vcsType: .git,
       statusToast: nil,
       pullRequest: nil,
       notificationGroups: [],

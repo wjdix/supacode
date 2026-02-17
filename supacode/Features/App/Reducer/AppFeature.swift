@@ -243,6 +243,7 @@ struct AppFeature {
           @Shared(.repositorySettings(repository.rootURL)) var repositorySettings
           state.settings.repositorySettings = RepositorySettingsFeature.State(
             rootURL: repository.rootURL,
+            vcsType: repository.vcsType,
             settings: repositorySettings
           )
         case .general, .notifications, .worktree, .updates, .advanced, .github:

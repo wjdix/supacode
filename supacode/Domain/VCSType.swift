@@ -10,6 +10,9 @@ enum VCSType: String, Codable, Hashable, Sendable {
   var worktreeLabel: String { isJujutsu ? "Workspace" : "Worktree" }
   var worktreeLabelLowercased: String { isJujutsu ? "workspace" : "worktree" }
 
+  var branchLabel: String { isJujutsu ? "Bookmark" : "Branch" }
+  var branchLabelLowercased: String { isJujutsu ? "bookmark" : "branch" }
+
   /// Detect VCS type by checking for `.jj/` and `.git/` at the given URL.
   /// Use this when the URL is known to be a repository root.
   static func detect(at url: URL) -> VCSType {

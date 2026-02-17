@@ -9,7 +9,7 @@ struct EmptyStateView: View {
       Image(systemName: "tray")
         .font(.title2)
         .accessibilityHidden(true)
-      Text("Open a git repository")
+      Text("Open a repository")
         .font(.headline)
       Text(
         "Press \(AppShortcuts.openRepository.display) "
