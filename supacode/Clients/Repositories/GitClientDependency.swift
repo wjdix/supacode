@@ -31,7 +31,7 @@ struct VCSClientDependency {
 extension VCSClientDependency: DependencyKey {
   private static func client(for url: URL) -> VCSClientAdapter {
     let vcsType = VCSType.detect(at: url)
-    return vcsType.isJujutsu ? VCSClientAdapter(jj: JjClient()) : VCSClientAdapter(git: GitClient())
+    return vcsType.isJujutsu ? VCSClientAdapter(jj: .init()) : VCSClientAdapter(git: .init())
   }
 
   static let liveValue = VCSClientDependency(
@@ -90,64 +90,64 @@ extension DependencyValues {
 /// Adapter that wraps either a GitClient or JjClient to provide a uniform calling interface.
 private enum VCSClientAdapter {
   case git(GitClient)
-  case jj(JjClient)
+  case jujutsu(JjClient)
 
   init(git: GitClient) { self = .git(git) }
-  init(jj: JjClient) { self = .jj(jj) }
+  init(jj client: JjClient) { self = .jujutsu(client) }
 
   func worktrees(for repoRoot: URL) async throws -> [Worktree] {
     switch self {
-    case .git(let c): try await c.worktrees(for: repoRoot)
-    case .jj(let c): try await c.worktrees(for: repoRoot)
+    case .git(let client): try await client.worktrees(for: repoRoot)
+    case .jujutsu(let client): try await client.worktrees(for: repoRoot)
     }
   }
 
   func pruneWorktrees(for repoRoot: URL) async throws {
     switch self {
-    case .git(let c): try await c.pruneWorktrees(for: repoRoot)
-    case .jj(let c): try await c.pruneWorktrees(for: repoRoot)
+    case .git(let client): try await client.pruneWorktrees(for: repoRoot)
+    case .jujutsu(let client): try await client.pruneWorktrees(for: repoRoot)
     }
   }
 
   func localBranchNames(for repoRoot: URL) async throws -> Set<String> {
     switch self {
-    case .git(let c): try await c.localBranchNames(for: repoRoot)
-    case .jj(let c): try await c.localBranchNames(for: repoRoot)
+    case .git(let client): try await client.localBranchNames(for: repoRoot)
+    case .jujutsu(let client): try await client.localBranchNames(for: repoRoot)
     }
   }
 
   func branchRefs(for repoRoot: URL) async throws -> [String] {
     switch self {
-    case .git(let c): try await c.branchRefs(for: repoRoot)
-    case .jj(let c): try await c.branchRefs(for: repoRoot)
+    case .git(let client): try await client.branchRefs(for: repoRoot)
+    case .jujutsu(let client): try await client.branchRefs(for: repoRoot)
     }
   }
 
   func defaultRemoteBranchRef(for repoRoot: URL) async throws -> String? {
     switch self {
-    case .git(let c): try await c.defaultRemoteBranchRef(for: repoRoot)
-    case .jj(let c): try await c.defaultRemoteBranchRef(for: repoRoot)
+    case .git(let client): try await client.defaultRemoteBranchRef(for: repoRoot)
+    case .jujutsu(let client): try await client.defaultRemoteBranchRef(for: repoRoot)
     }
   }
 
   func automaticWorktreeBaseRef(for repoRoot: URL) async -> String? {
     switch self {
-    case .git(let c): await c.automaticWorktreeBaseRef(for: repoRoot)
-    case .jj(let c): await c.automaticWorktreeBaseRef(for: repoRoot)
+    case .git(let client): await client.automaticWorktreeBaseRef(for: repoRoot)
+    case .jujutsu(let client): await client.automaticWorktreeBaseRef(for: repoRoot)
     }
   }
 
   func ignoredFileCount(for repoRoot: URL) async throws -> Int {
     switch self {
-    case .git(let c): try await c.ignoredFileCount(for: repoRoot)
-    case .jj(let c): try await c.ignoredFileCount(for: repoRoot)
+    case .git(let client): try await client.ignoredFileCount(for: repoRoot)
+    case .jujutsu(let client): try await client.ignoredFileCount(for: repoRoot)
     }
   }
 
   func untrackedFileCount(for repoRoot: URL) async throws -> Int {
     switch self {
-    case .git(let c): try await c.untrackedFileCount(for: repoRoot)
-    case .jj(let c): try await c.untrackedFileCount(for: repoRoot)
+    case .git(let client): try await client.untrackedFileCount(for: repoRoot)
+    case .jujutsu(let client): try await client.untrackedFileCount(for: repoRoot)
     }
   }
 
@@ -159,13 +159,13 @@ private enum VCSClientAdapter {
     baseRef: String
   ) async throws -> Worktree {
     switch self {
-    case .git(let c):
-      try await c.createWorktree(
+    case .git(let client):
+      try await client.createWorktree(
         named: name, in: repoRoot, copyIgnored: copyIgnored,
         copyUntracked: copyUntracked, baseRef: baseRef
       )
-    case .jj(let c):
-      try await c.createWorktree(
+    case .jujutsu(let client):
+      try await client.createWorktree(
         named: name, in: repoRoot, copyIgnored: copyIgnored,
         copyUntracked: copyUntracked, baseRef: baseRef
       )
@@ -174,43 +174,43 @@ private enum VCSClientAdapter {
 
   func removeWorktree(_ worktree: Worktree, deleteBranch: Bool) async throws -> URL {
     switch self {
-    case .git(let c): try await c.removeWorktree(worktree, deleteBranch: deleteBranch)
-    case .jj(let c): try await c.removeWorktree(worktree, deleteBranch: deleteBranch)
+    case .git(let client): try await client.removeWorktree(worktree, deleteBranch: deleteBranch)
+    case .jujutsu(let client): try await client.removeWorktree(worktree, deleteBranch: deleteBranch)
     }
   }
 
   func isBareRepository(for repoRoot: URL) async throws -> Bool {
     switch self {
-    case .git(let c): try await c.isBareRepository(for: repoRoot)
-    case .jj(let c): try await c.isBareRepository(for: repoRoot)
+    case .git(let client): try await client.isBareRepository(for: repoRoot)
+    case .jujutsu(let client): try await client.isBareRepository(for: repoRoot)
     }
   }
 
   func branchName(for worktreeURL: URL) async -> String? {
     switch self {
-    case .git(let c): await c.branchName(for: worktreeURL)
-    case .jj(let c): await c.branchName(for: worktreeURL)
+    case .git(let client): await client.branchName(for: worktreeURL)
+    case .jujutsu(let client): await client.branchName(for: worktreeURL)
     }
   }
 
   func lineChanges(at worktreeURL: URL) async -> (added: Int, removed: Int)? {
     switch self {
-    case .git(let c): await c.lineChanges(at: worktreeURL)
-    case .jj(let c): await c.lineChanges(at: worktreeURL)
+    case .git(let client): await client.lineChanges(at: worktreeURL)
+    case .jujutsu(let client): await client.lineChanges(at: worktreeURL)
     }
   }
 
   func renameBranch(in worktreeURL: URL, to branchName: String) async throws {
     switch self {
-    case .git(let c): try await c.renameBranch(in: worktreeURL, to: branchName)
-    case .jj(let c): try await c.renameBranch(in: worktreeURL, to: branchName)
+    case .git(let client): try await client.renameBranch(in: worktreeURL, to: branchName)
+    case .jujutsu(let client): try await client.renameBranch(in: worktreeURL, to: branchName)
     }
   }
 
   func remoteInfo(for repositoryRoot: URL) async -> GithubRemoteInfo? {
     switch self {
-    case .git(let c): await c.remoteInfo(for: repositoryRoot)
-    case .jj(let c): await c.remoteInfo(for: repositoryRoot)
+    case .git(let client): await client.remoteInfo(for: repositoryRoot)
+    case .jujutsu(let client): await client.remoteInfo(for: repositoryRoot)
     }
   }
 }

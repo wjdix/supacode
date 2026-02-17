@@ -64,7 +64,7 @@ struct JjClient {
     return Self.parseWorkspaceList(trimmed, repositoryRootURL: repositoryRootURL)
   }
 
-  nonisolated func pruneWorktrees(for repoRoot: URL) async throws {
+  nonisolated func pruneWorktrees(for repoRoot: URL) throws {
     // jj does not have a prune equivalent; workspaces are always consistent
   }
 
@@ -116,11 +116,11 @@ struct JjClient {
     return defaultRef
   }
 
-  nonisolated func ignoredFileCount(for repoRoot: URL) async throws -> Int {
+  nonisolated func ignoredFileCount(for repoRoot: URL) throws -> Int {
     0
   }
 
-  nonisolated func untrackedFileCount(for repoRoot: URL) async throws -> Int {
+  nonisolated func untrackedFileCount(for repoRoot: URL) throws -> Int {
     0
   }
 
@@ -201,7 +201,7 @@ struct JjClient {
     return worktree.workingDirectory
   }
 
-  nonisolated func isBareRepository(for repoRoot: URL) async throws -> Bool {
+  nonisolated func isBareRepository(for repoRoot: URL) throws -> Bool {
     false
   }
 
@@ -327,7 +327,7 @@ struct JjClient {
     var originURL: String?
     var firstURL: String?
     for line in lines {
-      let parts = line.split(whereSeparator: \.isWhitespace, maxSplits: 1)
+      let parts = line.split(maxSplits: 1, whereSeparator: \.isWhitespace)
       guard parts.count == 2 else { continue }
       let remoteName = String(parts[0]).trimmingCharacters(in: .whitespacesAndNewlines)
       let remoteURL = String(parts[1]).trimmingCharacters(in: .whitespacesAndNewlines)
