@@ -354,7 +354,7 @@ struct JjClient {
     let fullArgs = ["jj"] + arguments
     let command = ([env.path(percentEncoded: false)] + fullArgs).joined(separator: " ")
     do {
-      return try await shell.run(env, fullArgs, currentDirectoryURL).stdout
+      return try await shell.runLogin(env, fullArgs, currentDirectoryURL).stdout
     } catch {
       throw wrapShellError(error, operation: operation, command: command)
     }
