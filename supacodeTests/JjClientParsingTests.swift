@@ -157,6 +157,49 @@ struct JjClientParsingTests {
     #expect(info == nil)
   }
 
+  // MARK: - parseVersion
+
+  @Test func parseVersionStandard() {
+    let version = JjClient.parseVersion("jj 0.38.0")
+
+    #expect(version == JjVersion(major: 0, minor: 38, patch: 0))
+  }
+
+  @Test func parseVersionWithPreRelease() {
+    let version = JjClient.parseVersion("jj 0.38.0-dev")
+
+    #expect(version == JjVersion(major: 0, minor: 38, patch: 0))
+  }
+
+  @Test func parseVersionWithoutPrefix() {
+    let version = JjClient.parseVersion("0.37.0")
+
+    #expect(version == JjVersion(major: 0, minor: 37, patch: 0))
+  }
+
+  @Test func parseVersionMajorRelease() {
+    let version = JjClient.parseVersion("jj 1.2.3")
+
+    #expect(version == JjVersion(major: 1, minor: 2, patch: 3))
+  }
+
+  @Test func parseVersionInvalid() {
+    #expect(JjClient.parseVersion("not a version") == nil)
+    #expect(JjClient.parseVersion("") == nil)
+    #expect(JjClient.parseVersion("jj") == nil)
+  }
+
+  @Test func jjVersionComparison() {
+    let v037 = JjVersion(major: 0, minor: 37, patch: 0)
+    let v038 = JjVersion(major: 0, minor: 38, patch: 0)
+    let v100 = JjVersion(major: 1, minor: 0, patch: 0)
+
+    #expect(v037 < v038)
+    #expect(v038 < v100)
+    #expect(!(v038 < v037))
+    #expect(v038 == JjVersion(major: 0, minor: 38, patch: 0))
+  }
+
   // MARK: - relativePath
 
   @Test func relativePathSameDirectory() {

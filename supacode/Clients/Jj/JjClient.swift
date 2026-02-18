@@ -15,8 +15,23 @@ enum JjOperation: String {
   case remoteList = "remote_list"
 }
 
+struct JjVersion: Equatable, Comparable, Sendable {
+  let major: Int
+  let minor: Int
+  let patch: Int
+
+  nonisolated static func < (lhs: JjVersion, rhs: JjVersion) -> Bool {
+    if lhs.major != rhs.major { return lhs.major < rhs.major }
+    if lhs.minor != rhs.minor { return lhs.minor < rhs.minor }
+    return lhs.patch < rhs.patch
+  }
+
+  nonisolated var description: String { "\(major).\(minor).\(patch)" }
+}
+
 enum JjClientError: LocalizedError {
   case commandFailed(command: String, message: String)
+  case unsupportedVersion(installed: String, minimum: String)
 
   var errorDescription: String? {
     switch self {
@@ -25,11 +40,15 @@ enum JjClientError: LocalizedError {
         return "jj command failed: \(command)"
       }
       return "jj command failed: \(command)\n\(message)"
+    case .unsupportedVersion(let installed, let minimum):
+      return "jj version \(installed) is not supported. Minimum required version is \(minimum)."
     }
   }
 }
 
 struct JjClient {
+  nonisolated static let minimumVersion = JjVersion(major: 0, minor: 38, patch: 0)
+
   private let shell: ShellClient
   private let colocatedGitClient: GitClient
 
@@ -38,7 +57,44 @@ struct JjClient {
     self.colocatedGitClient = GitClient(shell: shell)
   }
 
+  nonisolated func checkVersion() async throws {
+    let env = URL(fileURLWithPath: "/usr/bin/env")
+    let output = try await shell.runLogin(env, ["jj", "version"], nil, log: false).stdout
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+    guard let version = Self.parseVersion(output) else {
+      throw JjClientError.unsupportedVersion(
+        installed: output,
+        minimum: Self.minimumVersion.description
+      )
+    }
+    if version < Self.minimumVersion {
+      throw JjClientError.unsupportedVersion(
+        installed: version.description,
+        minimum: Self.minimumVersion.description
+      )
+    }
+  }
+
+  /// Parse a version string like "jj 0.38.0" or "jj 0.38.0-dev" into components.
+  nonisolated static func parseVersion(_ output: String) -> JjVersion? {
+    let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
+    // Expected format: "jj 0.38.0" or just "0.38.0"
+    let versionString = trimmed.hasPrefix("jj ") ? String(trimmed.dropFirst(3)) : trimmed
+    // Strip any pre-release suffix (e.g. "-dev", "-rc1")
+    let base = versionString.split(separator: "-").first.map(String.init) ?? versionString
+    let parts = base.split(separator: ".")
+    guard parts.count >= 3,
+      let major = Int(parts[0]),
+      let minor = Int(parts[1]),
+      let patch = Int(parts[2])
+    else {
+      return nil
+    }
+    return JjVersion(major: major, minor: minor, patch: patch)
+  }
+
   nonisolated func repoRoot(for path: URL) async throws -> URL {
+    try await checkVersion()
     let normalizedPath = path.hasDirectoryPath ? path : path.deletingLastPathComponent()
     let output = try await runJj(
       operation: .repoRoot,
