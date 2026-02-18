@@ -4,6 +4,7 @@ import Sentry
 enum JjOperation: String {
   case repoRoot = "repo_root"
   case workspaceList = "workspace_list"
+  case workspaceRoot = "workspace_root"
   case workspaceAdd = "workspace_add"
   case workspaceForget = "workspace_forget"
   case bookmarkList = "bookmark_list"
@@ -50,6 +51,21 @@ struct JjClient {
     return URL(fileURLWithPath: output).standardizedFileURL
   }
 
+  nonisolated func workspaceRoot(name: String, in repoRoot: URL) async throws -> URL {
+    let output = try await runJj(
+      operation: .workspaceRoot,
+      arguments: ["workspace", "root", "--name", name, "--ignore-working-copy"],
+      currentDirectoryURL: repoRoot
+    )
+    if output.isEmpty {
+      throw JjClientError.commandFailed(
+        command: "jj workspace root --name \(name)",
+        message: "Empty output"
+      )
+    }
+    return URL(fileURLWithPath: output).standardizedFileURL
+  }
+
   nonisolated func worktrees(for repoRoot: URL) async throws -> [Worktree] {
     let repositoryRootURL = repoRoot.standardizedFileURL
     let output = try await runJj(
@@ -57,11 +73,31 @@ struct JjClient {
       arguments: ["workspace", "list", "--ignore-working-copy"],
       currentDirectoryURL: repoRoot
     )
-    let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
-    if trimmed.isEmpty {
+    let names = Self.parseWorkspaceNames(output)
+    if names.isEmpty {
       return []
     }
-    return Self.parseWorkspaceList(trimmed, repositoryRootURL: repositoryRootURL)
+    var worktrees: [Worktree] = []
+    for name in names {
+      let worktreeURL = try await workspaceRoot(name: name, in: repoRoot)
+      let detail = Self.relativePath(from: repositoryRootURL, to: worktreeURL)
+      let id = worktreeURL.path(percentEncoded: false)
+      let resourceValues = try? worktreeURL.resourceValues(forKeys: [
+        .creationDateKey, .contentModificationDateKey,
+      ])
+      let createdAt = resourceValues?.creationDate ?? resourceValues?.contentModificationDate
+      worktrees.append(
+        Worktree(
+          id: id,
+          name: name,
+          detail: detail,
+          workingDirectory: worktreeURL,
+          repositoryRootURL: repositoryRootURL,
+          createdAt: createdAt
+        )
+      )
+    }
+    return worktrees
   }
 
   nonisolated func pruneWorktrees(for repoRoot: URL) throws {
@@ -153,7 +189,7 @@ struct JjClient {
       currentDirectoryURL: repoRoot
     )
 
-    let worktreeURL = workspacePath.standardizedFileURL
+    let worktreeURL = try await workspaceRoot(name: name, in: repoRoot)
     let detail = Self.relativePath(from: repositoryRootURL, to: worktreeURL)
     let id = worktreeURL.path(percentEncoded: false)
     let resourceValues = try? worktreeURL.resourceValues(forKeys: [
@@ -271,36 +307,17 @@ struct JjClient {
 
   // MARK: - Parsing
 
-  nonisolated static func parseWorkspaceList(
-    _ output: String,
-    repositoryRootURL: URL
-  ) -> [Worktree] {
+  nonisolated static func parseWorkspaceNames(_ output: String) -> [String] {
     output
       .split(whereSeparator: \.isNewline)
-      .compactMap { line -> Worktree? in
+      .compactMap { line -> String? in
         let trimmedLine = line.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedLine.isEmpty else { return nil }
         guard let colonRange = trimmedLine.range(of: ": ") else { return nil }
         let name = String(trimmedLine[trimmedLine.startIndex..<colonRange.lowerBound])
           .trimmingCharacters(in: .whitespacesAndNewlines)
-        let path = String(trimmedLine[colonRange.upperBound...])
-          .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty, !path.isEmpty else { return nil }
-        let worktreeURL = URL(fileURLWithPath: path).standardizedFileURL
-        let detail = relativePath(from: repositoryRootURL, to: worktreeURL)
-        let id = worktreeURL.path(percentEncoded: false)
-        let resourceValues = try? worktreeURL.resourceValues(forKeys: [
-          .creationDateKey, .contentModificationDateKey,
-        ])
-        let createdAt = resourceValues?.creationDate ?? resourceValues?.contentModificationDate
-        return Worktree(
-          id: id,
-          name: name,
-          detail: detail,
-          workingDirectory: worktreeURL,
-          repositoryRootURL: repositoryRootURL,
-          createdAt: createdAt
-        )
+        guard !name.isEmpty else { return nil }
+        return name
       }
   }
 

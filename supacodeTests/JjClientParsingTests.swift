@@ -4,75 +4,59 @@ import Testing
 @testable import supacode
 
 struct JjClientParsingTests {
-  // MARK: - parseWorkspaceList
+  // MARK: - parseWorkspaceNames
 
-  @Test func parseWorkspaceListSingleDefault() {
-    let output = "default: /Users/dev/myrepo"
-    let root = URL(fileURLWithPath: "/Users/dev/myrepo")
-    let worktrees = JjClient.parseWorkspaceList(output, repositoryRootURL: root)
+  @Test func parseWorkspaceNamesSingleDefault() {
+    let output = "default: rlvkpntz 3a7b2c1e (no description set)"
+    let names = JjClient.parseWorkspaceNames(output)
 
-    #expect(worktrees.count == 1)
-    #expect(worktrees[0].name == "default")
-    #expect(worktrees[0].workingDirectory.path(percentEncoded: false) == "/Users/dev/myrepo")
+    #expect(names.count == 1)
+    #expect(names[0] == "default")
   }
 
-  @Test func parseWorkspaceListMultipleWorkspaces() {
+  @Test func parseWorkspaceNamesMultipleWorkspaces() {
     let output = """
-      default: /Users/dev/myrepo
-      feature-a: /Users/dev/.supacode/myrepo/feature-a
-      bugfix: /Users/dev/.supacode/myrepo/bugfix
+      default: rlvkpntz 3a7b2c1e (no description set)
+      feature-a: xyzwvuts 1b2c3d4e implement login
+      bugfix: abcdefgh 5f6g7h8i fix crash on startup
       """
-    let root = URL(fileURLWithPath: "/Users/dev/myrepo")
-    let worktrees = JjClient.parseWorkspaceList(output, repositoryRootURL: root)
+    let names = JjClient.parseWorkspaceNames(output)
 
-    #expect(worktrees.count == 3)
-    #expect(worktrees[0].name == "default")
-    #expect(worktrees[1].name == "feature-a")
-    #expect(worktrees[2].name == "bugfix")
-    #expect(worktrees[0].repositoryRootURL == root.standardizedFileURL)
+    #expect(names.count == 3)
+    #expect(names[0] == "default")
+    #expect(names[1] == "feature-a")
+    #expect(names[2] == "bugfix")
   }
 
-  @Test func parseWorkspaceListSkipsEmptyLines() {
+  @Test func parseWorkspaceNamesSkipsEmptyLines() {
     let output = """
-      default: /Users/dev/myrepo
+      default: rlvkpntz 3a7b2c1e (no description set)
 
-      feature: /Users/dev/.supacode/myrepo/feature
+      feature: xyzwvuts 1b2c3d4e implement feature
 
       """
-    let root = URL(fileURLWithPath: "/Users/dev/myrepo")
-    let worktrees = JjClient.parseWorkspaceList(output, repositoryRootURL: root)
+    let names = JjClient.parseWorkspaceNames(output)
 
-    #expect(worktrees.count == 2)
+    #expect(names.count == 2)
   }
 
-  @Test func parseWorkspaceListEmptyOutput() {
-    let root = URL(fileURLWithPath: "/Users/dev/myrepo")
-    let worktrees = JjClient.parseWorkspaceList("", repositoryRootURL: root)
+  @Test func parseWorkspaceNamesEmptyOutput() {
+    let names = JjClient.parseWorkspaceNames("")
 
-    #expect(worktrees.isEmpty)
+    #expect(names.isEmpty)
   }
 
-  @Test func parseWorkspaceListSkipsMalformedLines() {
+  @Test func parseWorkspaceNamesSkipsMalformedLines() {
     let output = """
-      default: /Users/dev/myrepo
+      default: rlvkpntz 3a7b2c1e (no description set)
       no-colon-here
-      feature: /Users/dev/.supacode/myrepo/feature
+      feature: xyzwvuts 1b2c3d4e implement feature
       """
-    let root = URL(fileURLWithPath: "/Users/dev/myrepo")
-    let worktrees = JjClient.parseWorkspaceList(output, repositoryRootURL: root)
+    let names = JjClient.parseWorkspaceNames(output)
 
-    #expect(worktrees.count == 2)
-    #expect(worktrees[0].name == "default")
-    #expect(worktrees[1].name == "feature")
-  }
-
-  @Test func parseWorkspaceListComputesRelativeDetail() {
-    let output = "feature: /Users/dev/.supacode/myrepo/feature"
-    let root = URL(fileURLWithPath: "/Users/dev/myrepo")
-    let worktrees = JjClient.parseWorkspaceList(output, repositoryRootURL: root)
-
-    #expect(worktrees.count == 1)
-    #expect(worktrees[0].detail.contains("feature"))
+    #expect(names.count == 2)
+    #expect(names[0] == "default")
+    #expect(names[1] == "feature")
   }
 
   // MARK: - parseDiffStat
